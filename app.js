@@ -12,64 +12,25 @@ const path = require("path");
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
-// app.use(cors());
-// app.use(express.json());
-
 const app = express();
 
 connectToDb();
 
-// middlewares
 app.use(express.json());
 
-// prevet xss atacks
 app.use(xss());
 
-// rate linit
-// app.use(
-//   ratelimiting({
-//     windowMs: 10 * 60 * 1000, // 10 munitse
-//     max: 200,
-//   })
-// );
-
-// security headers (helmet)
 app.use(helmet());
 
-// prevent http param polution
 app.use(hpp());
 
-//cors policy
-// app.use(
-//   cors({
-//     origin: ["https://frontend-mern-eclz.onrender.com"],
-//     methods: ["GET", "POST"],
-//     credentials: true,
-//   })
-// );
 app.use(cors({ origin: true }));
 
-// Serve static files from the React app or other front-end framework
-// app.use(express.static(path.join(__dirname, "build")));
-
-// Catch-all handler to return index.html for all routes
-// app.get("*", (req, res) => {
-//   res.sendFile(path.join(__dirname, "build", "index.html"));
-// });
-
-// app.use((err, req, res, next) => {
-//   console.error(err.stack); // سجل تتبع الخطأ
-//   res.status(500).send({ message: "حدث خطأ في الخادم" });
-// });
-
 app.use("/api/auth", require("./routes/authRoute"));
-app.use("/api/users", require("./routes/usersRoute"));
-app.use("/api/posts", require("./routes/postsRoute"));
-app.use("/api/comments", require("./routes/commentsRoute"));
-app.use("/api/category", require("./routes/categoryRoute"));
+// app.use("/api/users", require("./routes/usersRoute"));
 app.use("/api/password", require("./routes/passwordRoute"));
-app.use("/api/orders", require("./routes/orders"));
 app.use("/api/properties", require("./routes/propertyRoute"));
+app.use("/api/favorites", require("./routes/favoriteRoute"));
 
 // ✅ Stripe payment route (هنا)
 app.post("/payments/create", async (req, res) => {

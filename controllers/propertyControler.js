@@ -1,25 +1,216 @@
 const mongoose = require("mongoose");
 const Property = require("../models/Property");
 
+const allowedPropertyTypes = [
+  "apartment",
+  "villa",
+  "townhouse",
+  "penthouse",
+  "office",
+  "shop",
+  "warehouse",
+  "land",
+];
+
+const allowedPurposes = ["sale", "rent"];
+
+const allowedStatuses = ["available", "sold", "rented", "pending"];
+
+const allowedSortOptions = [
+  "newest",
+  "oldest",
+  "price_asc",
+  "price_desc",
+  "views",
+];
+
+const validateNumber = (
+  value,
+  fieldName,
+  { min = 0, max = Infinity, integer = false } = {}
+) => {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (value.trim() === "") {
+    return `${fieldName} cannot be empty`;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return `${fieldName} must be a valid number`;
+  }
+
+  if (integer && !Number.isInteger(number)) {
+    return `${fieldName} must be an integer`;
+  }
+
+  if (number < min) {
+    return `${fieldName} must be at least ${min}`;
+  }
+
+  if (number > max) {
+    return `${fieldName} cannot exceed ${max}`;
+  }
+
+  return null;
+};
+
 // ===============================
 // GET ALL PROPERTIES
 // ===============================
 
 const getProperties = async (req, res) => {
   try {
+    // const {
+    //   purpose,
+    //   propertyType,
+    //   city,
+    //   area,
+    //   bedrooms,
+    //   bathrooms,
+    //   status,
+    //   featured,
+    //   page = 1,
+    //   limit = 12,
+    //   sort = "newest",
+    // } = req.query;
     const {
       purpose,
       propertyType,
       city,
       area,
+
       bedrooms,
       bathrooms,
+
+      minBedrooms,
+      maxBedrooms,
+      minBathrooms,
+      maxBathrooms,
+
+      minPrice,
+      maxPrice,
+
+      minArea,
+      maxArea,
+
       status,
       featured,
+      amenities,
+
       page = 1,
       limit = 12,
       sort = "newest",
     } = req.query;
+
+    // Validate enum query parameters
+    if (purpose && !allowedPurposes.includes(purpose)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid purpose. Use sale or rent.",
+      });
+    }
+
+    if (propertyType && !allowedPropertyTypes.includes(propertyType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid property type.",
+      });
+    }
+
+    if (status && !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid property status.",
+      });
+    }
+
+    if (!allowedSortOptions.includes(sort)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sort option.",
+      });
+    }
+
+    // Validate numeric parameters
+    const numericFields = [
+      ["minPrice", minPrice, { min: 0 }],
+      ["maxPrice", maxPrice, { min: 0 }],
+      ["minArea", minArea, { min: 0 }],
+      ["maxArea", maxArea, { min: 0 }],
+      ["bedrooms", bedrooms, { min: 0, integer: true }],
+      ["bathrooms", bathrooms, { min: 0, integer: true }],
+      ["minBedrooms", minBedrooms, { min: 0, integer: true }],
+      ["maxBedrooms", maxBedrooms, { min: 0, integer: true }],
+      ["minBathrooms", minBathrooms, { min: 0, integer: true }],
+      ["maxBathrooms", maxBathrooms, { min: 0, integer: true }],
+      ["page", String(page), { min: 1, integer: true }],
+      ["limit", String(limit), { min: 1, max: 100, integer: true }],
+    ];
+
+    for (const [field, value, options] of numericFields) {
+      const error = validateNumber(value, field, options);
+
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error,
+        });
+      }
+    }
+
+    // Validate min/max ranges
+    const ranges = [
+      ["minPrice", minPrice, "maxPrice", maxPrice],
+      ["minArea", minArea, "maxArea", maxArea],
+      ["minBedrooms", minBedrooms, "maxBedrooms", maxBedrooms],
+      ["minBathrooms", minBathrooms, "maxBathrooms", maxBathrooms],
+    ];
+
+    for (const [minName, minValue, maxName, maxValue] of ranges) {
+      if (
+        minValue !== undefined &&
+        maxValue !== undefined &&
+        Number(minValue) > Number(maxValue)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `${minName} cannot be greater than ${maxName}.`,
+        });
+      }
+    }
+
+    // Prevent conflicting exact and range filters
+    if (
+      bedrooms !== undefined &&
+      (minBedrooms !== undefined || maxBedrooms !== undefined)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Use bedrooms or bedroom range, not both.",
+      });
+    }
+
+    if (
+      bathrooms !== undefined &&
+      (minBathrooms !== undefined || maxBathrooms !== undefined)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Use bathrooms or bathroom range, not both.",
+      });
+    }
+
+    // Validate featured
+    if (featured !== undefined && !["true", "false"].includes(featured)) {
+      return res.status(400).json({
+        success: false,
+        message: "featured must be true or false.",
+      });
+    }
 
     // ==========================
     // BUILD FILTER
@@ -27,6 +218,83 @@ const getProperties = async (req, res) => {
 
     const filter = {};
 
+    // ==========================
+    // PRICE FILTER
+    // ==========================
+
+    if (minPrice || maxPrice) {
+      filter.price = {};
+
+      if (minPrice) {
+        filter.price.$gte = Number(minPrice);
+      }
+
+      if (maxPrice) {
+        filter.price.$lte = Number(maxPrice);
+      }
+    }
+
+    // ==========================
+    // AREA FILTER
+    // ==========================
+
+    if (minArea || maxArea) {
+      filter.area = {};
+
+      if (minArea) {
+        filter.area.$gte = Number(minArea);
+      }
+
+      if (maxArea) {
+        filter.area.$lte = Number(maxArea);
+      }
+    }
+    // ==========================
+    // BEDROOMS FILTER
+    // ==========================
+
+    if (minBedrooms || maxBedrooms) {
+      filter.bedrooms = {};
+
+      if (minBedrooms) {
+        filter.bedrooms.$gte = Number(minBedrooms);
+      }
+
+      if (maxBedrooms) {
+        filter.bedrooms.$lte = Number(maxBedrooms);
+      }
+    }
+    // ==========================
+    // BATHROOMS FILTER
+    // ==========================
+
+    if (minBathrooms || maxBathrooms) {
+      filter.bathrooms = {};
+
+      if (minBathrooms) {
+        filter.bathrooms.$gte = Number(minBathrooms);
+      }
+
+      if (maxBathrooms) {
+        filter.bathrooms.$lte = Number(maxBathrooms);
+      }
+    }
+    // ==========================
+    // AMENITIES FILTER
+    // ==========================
+
+    if (amenities) {
+      const amenitiesArray = amenities
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (amenitiesArray.length > 0) {
+        filter.amenities = {
+          $all: amenitiesArray,
+        };
+      }
+    }
     if (purpose) {
       filter.purpose = purpose;
     }
@@ -105,7 +373,7 @@ const getProperties = async (req, res) => {
     const total = await Property.countDocuments(filter);
 
     const properties = await Property.find(filter)
-      .populate("agent", "firstName lastName email profileImage")
+      .populate("agent", "firstName lastName email phone profileImage")
       .sort(sortOption)
       .skip(skip)
       .limit(itemsPerPage)
@@ -117,24 +385,41 @@ const getProperties = async (req, res) => {
 
     const totalPages = Math.ceil(total / itemsPerPage);
 
+    // res.status(200).json({
+    //   success: true,
+
+    //   count: properties.length,
+
+    //   total,
+
+    //   page: currentPage,
+
+    //   limit: itemsPerPage,
+
+    //   pages: totalPages,
+
+    //   hasNextPage: currentPage < totalPages,
+
+    //   hasPrevPage: currentPage > 1,
+
+    //   properties,
+    // });
     res.status(200).json({
       success: true,
 
-      count: properties.length,
+      data: {
+        properties,
 
-      total,
-
-      page: currentPage,
-
-      limit: itemsPerPage,
-
-      pages: totalPages,
-
-      hasNextPage: currentPage < totalPages,
-
-      hasPrevPage: currentPage > 1,
-
-      properties,
+        pagination: {
+          total,
+          count: properties.length,
+          page: currentPage,
+          limit: itemsPerPage,
+          pages: totalPages,
+          hasNextPage: currentPage < totalPages,
+          hasPrevPage: currentPage > 1,
+        },
+      },
     });
   } catch (error) {
     res.status(500).json({

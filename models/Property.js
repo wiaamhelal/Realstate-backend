@@ -151,4 +151,48 @@ const propertySchema = new mongoose.Schema(
 
 const Property = mongoose.model("Property", propertySchema);
 
+// Common listing queries
+propertySchema.index({
+  status: 1,
+  approved: 1,
+  createdAt: -1,
+});
+
+// Sale / rent listings
+propertySchema.index({
+  purpose: 1,
+  status: 1,
+  approved: 1,
+  createdAt: -1,
+});
+
+// Location-based search
+propertySchema.index({
+  "location.city": 1,
+  "location.area": 1,
+  status: 1,
+  approved: 1,
+});
+
+// Property type filtering
+propertySchema.index({
+  propertyType: 1,
+  purpose: 1,
+  status: 1,
+  approved: 1,
+});
+
+// Price sorting and filtering
+propertySchema.index({
+  purpose: 1,
+  status: 1,
+  price: 1,
+});
+
+// Featured listings
+propertySchema.index({
+  featured: -1,
+  createdAt: -1,
+});
+
 module.exports = Property;
