@@ -1,5 +1,5 @@
 const express = require("express");
-
+const { uploadPropertyImages } = require("../middlewares/uploadMiddleware");
 const {
   getProperties,
   getProperty,
@@ -8,14 +8,20 @@ const {
   deleteProperty,
 } = require("../controllers/propertyControler");
 
+const { protect } = require("../middlewares/authMiddleware");
+
 const router = express.Router();
 
-router.route("/").get(getProperties).post(createProperty);
+// Public routes
+router.route("/").get(getProperties);
+router.route("/:id").get(getProperty);
 
+// Protected routes
+// router.route("/").post(protect, createProperty);
+router.route("/").post(protect, uploadPropertyImages, createProperty);
 router
   .route("/:id")
-  .get(getProperty)
-  .patch(updateProperty)
-  .delete(deleteProperty);
+  .patch(protect, updateProperty)
+  .delete(protect, deleteProperty);
 
 module.exports = router;

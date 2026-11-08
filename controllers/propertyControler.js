@@ -472,8 +472,169 @@ const getProperty = async (req, res) => {
 // CREATE PROPERTY
 // ===============================
 
+// const createProperty = async (req, res) => {
+//   try {
+//     const {
+//       title,
+//       description,
+//       propertyType,
+//       purpose,
+//       price,
+//       currency,
+//       bedrooms,
+//       bathrooms,
+//       area,
+//       areaUnit,
+//       location,
+//       images,
+//       amenities,
+//       agent,
+//       status,
+//       featured,
+//     } = req.body;
+
+//     if (
+//       !title ||
+//       !description ||
+//       !propertyType ||
+//       !purpose ||
+//       price === undefined ||
+//       area === undefined ||
+//       !location?.city ||
+//       !location?.area ||
+//       !agent
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please provide all required property fields",
+//       });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(agent)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid agent ID",
+//       });
+//     }
+
+//     const property = await Property.create({
+//       title,
+//       description,
+//       propertyType,
+//       purpose,
+//       price,
+//       currency,
+//       bedrooms,
+//       bathrooms,
+//       area,
+//       areaUnit,
+//       location,
+//       images,
+//       amenities,
+//       agent,
+//       status,
+//       featured,
+//     });
+
+//     const populatedProperty = await property.populate(
+//       "agent",
+//       "firstName lastName email profileImage"
+//     );
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Property created successfully",
+//       property: populatedProperty,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
+// const createProperty = async (req, res) => {
+//   try {
+//     console.log("Uploaded files:", req.files);
+//     const {
+//       title,
+//       description,
+//       propertyType,
+//       purpose,
+//       price,
+//       currency,
+//       bedrooms,
+//       bathrooms,
+//       area,
+//       areaUnit,
+//       location,
+//       images = [],
+//       amenities = [],
+//     } = req.body;
+
+//     // Validate required fields
+//     if (
+//       !title ||
+//       !description ||
+//       !propertyType ||
+//       !purpose ||
+//       price === undefined ||
+//       area === undefined ||
+//       !location?.city ||
+//       !location?.area
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please provide all required property fields",
+//       });
+//     }
+
+//     // Get agent from authenticated user
+//     const agent = req.user._id;
+
+//     // Create property
+//     const property = await Property.create({
+//       title,
+//       description,
+//       propertyType,
+//       purpose,
+//       price,
+//       currency,
+//       bedrooms,
+//       bathrooms,
+//       area,
+//       areaUnit,
+//       location,
+//       images,
+//       amenities,
+//       agent,
+//     });
+
+//     // Populate agent information
+//     const populatedProperty = await property.populate(
+//       "agent",
+//       "firstName lastName email profileImage"
+//     );
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Property created successfully",
+//       property: populatedProperty,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 const createProperty = async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("UPLOADED FILES:", req.files?.length || 0);
+
     const {
       title,
       description,
@@ -485,24 +646,39 @@ const createProperty = async (req, res) => {
       bathrooms,
       area,
       areaUnit,
-      location,
-      images,
       amenities,
-      agent,
-      status,
-      featured,
     } = req.body;
 
+    // Parse location from JSON string
+    let location;
+
+    console.log("RAW LOCATION:", req.body.location);
+    console.log("LOCATION TYPE:", typeof req.body.location);
+
+    try {
+      location =
+        typeof req.body.location === "string"
+          ? JSON.parse(req.body.location)
+          : req.body.location;
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid location format. Please provide valid JSON.",
+      });
+    }
+
+    // Validate required fields
     if (
       !title ||
       !description ||
       !propertyType ||
       !purpose ||
       price === undefined ||
+      price === "" ||
       area === undefined ||
+      area === "" ||
       !location?.city ||
-      !location?.area ||
-      !agent
+      !location?.area
     ) {
       return res.status(400).json({
         success: false,
@@ -510,30 +686,29 @@ const createProperty = async (req, res) => {
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(agent)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid agent ID",
-      });
-    }
+    // Get agent from authenticated user
+    const agent = req.user._id;
 
+    // Convert numeric fields
     const property = await Property.create({
       title,
       description,
       propertyType,
       purpose,
-      price,
+      price: Number(price),
       currency,
-      bedrooms,
-      bathrooms,
-      area,
+      bedrooms: Number(bedrooms || 0),
+      bathrooms: Number(bathrooms || 0),
+      area: Number(area),
       areaUnit,
       location,
-      images,
-      amenities,
+      images: [],
+      amenities: amenities
+        ? Array.isArray(amenities)
+          ? amenities
+          : [amenities]
+        : [],
       agent,
-      status,
-      featured,
     });
 
     const populatedProperty = await property.populate(
@@ -541,13 +716,13 @@ const createProperty = async (req, res) => {
       "firstName lastName email profileImage"
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Property created successfully",
       property: populatedProperty,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
