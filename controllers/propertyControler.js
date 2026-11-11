@@ -654,6 +654,10 @@ const createProperty = async (req, res) => {
 
     console.log("RAW LOCATION:", req.body.location);
     console.log("LOCATION TYPE:", typeof req.body.location);
+    console.log("========== CREATE PROPERTY ==========");
+    console.log("BODY:", req.body);
+    console.log("FILES:", req.files);
+    console.log("UPLOADED IMAGES:", req.uploadedImages);
 
     try {
       location =
@@ -702,7 +706,8 @@ const createProperty = async (req, res) => {
       area: Number(area),
       areaUnit,
       location,
-      images: [],
+      // images: [],
+      images: req.uploadedImages || [],
       amenities: amenities
         ? Array.isArray(amenities)
           ? amenities

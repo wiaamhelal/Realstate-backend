@@ -30,6 +30,11 @@ const upload = multer({
 // Export property image uploader
 const uploadPropertyImages = upload.array("images", 10);
 
+const debugUpload = (req, res, next) => {
+  console.log("MULTER FILES:", req.files);
+  next();
+};
+
 module.exports = {
   uploadPropertyImages,
 };

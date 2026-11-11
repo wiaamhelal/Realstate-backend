@@ -7,6 +7,9 @@ const {
   updateProperty,
   deleteProperty,
 } = require("../controllers/propertyControler");
+const {
+  cloudinaryUploadMiddleware,
+} = require("../middlewares/cloudinaryUploadMiddleware");
 
 const { protect } = require("../middlewares/authMiddleware");
 
@@ -18,7 +21,15 @@ router.route("/:id").get(getProperty);
 
 // Protected routes
 // router.route("/").post(protect, createProperty);
-router.route("/").post(protect, uploadPropertyImages, createProperty);
+// router.route("/").post(protect, uploadPropertyImages, createProperty);
+router
+  .route("/")
+  .post(
+    protect,
+    uploadPropertyImages,
+    cloudinaryUploadMiddleware,
+    createProperty
+  );
 router
   .route("/:id")
   .patch(protect, updateProperty)

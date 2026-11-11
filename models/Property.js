@@ -149,8 +149,6 @@ const propertySchema = new mongoose.Schema(
   }
 );
 
-const Property = mongoose.model("Property", propertySchema);
-
 // Common listing queries
 propertySchema.index({
   status: 1,
@@ -194,5 +192,5 @@ propertySchema.index({
   featured: -1,
   createdAt: -1,
 });
-
+const Property = mongoose.model("Property", propertySchema);
 module.exports = Property;
